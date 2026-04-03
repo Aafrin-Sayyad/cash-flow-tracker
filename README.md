@@ -57,3 +57,7 @@ cash-flow-tracker/
 
 Sayyad Aafrin
 Prodesk IT Internship — Week 2
+
+## Project Screenshot
+
+![MISSION2](screenshot.png)
