@@ -1,5 +1,6 @@
 # 💸 Cash-Flow — Salary & Expense Tracker
 **Live Demo:** [https://cash-flow-trackerr.netlify.app/]
+
 A personal finance tracker I built using plain HTML, CSS, and JavaScript. No frameworks, no build tools — just open `index.html` in a browser and it works.
 
 ---
