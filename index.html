@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cash-Flow — Salary & Expense Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --surface2: #1e1e24;
+    --border: #2a2a35;
+    --accent: #e8ff5a;
+    --accent2: #5affb8;
+    --danger: #ff5a5a;
+    --text: #f0f0f5;
+    --muted: #888898;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 0 60px;
+  }
+  header {
+    padding: 32px 40px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: var(--accent);
+  }
+  header span {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--card-color, var(--accent));
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .stat-card.danger-card { --card-color: var(--danger); }
+  .stat-card.income-card { --card-color: var(--accent2); }
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: var(--text);
+    transition: color 0.3s;
+  }
+  .stat-value.low { color: var(--danger) !important; }
+  #balance-warning {
+    display: none;
+    background: #2a1010;
+    border: 1px solid var(--danger);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    color: var(--danger);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 24px;
+    align-items: center;
+    gap: 10px;
+  }
+  #balance-warning.visible { display: flex; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .panel h2 {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  input[type=text], input[type=number], select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--surface); }
+  .btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-accent { background: var(--accent); color: #0d0d0f; }
+  .btn-green { background: var(--accent2); color: #0d0d0f; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .expense-list { list-style: none; margin-top: 0; }
+  .expense-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .expense-item:last-child { border-bottom: none; }
+  .exp-name { flex: 1; font-size: 14px; }
+  .exp-amount {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--danger);
+    font-weight: 500;
+    min-width: 90px;
+    text-align: right;
+  }
+  .exp-converted {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 70px;
+    text-align: right;
+  }
+  .btn-del {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 16px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: color 0.2s, background 0.2s;
+    line-height: 1;
+  }
+  .btn-del:hover { color: var(--danger); background: #2a1010; }
+  .chart-panel { margin-top: 24px; }
+  #pie-chart-wrap { max-width: 240px; margin: 0 auto; }
+  .actions-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  .actions-row .btn { width: auto; flex: 1; min-width: 140px; }
+  .currency-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    background: var(--surface2);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .currency-row label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .currency-row select { flex: 1; }
+  #fx-rate {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 30px 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .error-msg {
+    color: var(--danger);
+    font-size: 12px;
+    margin-top: 6px;
+    font-family: 'DM Mono', monospace;
+    display: none;
+  }
+  @media (max-width: 700px) {
+    .stats-row { grid-template-columns: 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+    header { padding: 20px; }
+    .main { padding: 20px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cash-Flow</h1>
+  <span>Salary &amp; Expense Tracker</span>
+</header>
+
+<div class="main">
+
+  <!-- Currency selector -->
+  <div class="currency-row">
+    <label>Currency</label>
+    <select id="currency-select" onchange="changeCurrency(this.value)">
+      <option value="INR">INR — Indian Rupee</option>
+      <option value="USD">USD — US Dollar</option>
+      <option value="EUR">EUR — Euro</option>
+      <option value="GBP">GBP — British Pound</option>
+      <option value="JPY">JPY — Japanese Yen</option>
+      <option value="AED">AED — UAE Dirham</option>
+    </select>
+    <span id="fx-rate">1 INR = 1.00 INR</span>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card income-card">
+      <div class="stat-label">Total Salary</div>
+      <div class="stat-value" id="stat-salary">₹0</div>
+    </div>
+    <div class="stat-card danger-card">
+      <div class="stat-label">Total Expenses</div>
+      <div class="stat-value" id="stat-expenses">₹0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Remaining Balance</div>
+      <div class="stat-value" id="stat-balance">₹0</div>
+    </div>
+  </div>
+
+  <!-- Budget warning -->
+  <div id="balance-warning">
+    ⚠ Warning: Your remaining balance is below 10% of your salary!
+  </div>
+
+  <!-- Main grid -->
+  <div class="grid-2">
+
+    <!-- Left: Input panel -->
+    <div>
+      <div class="panel" style="margin-bottom: 20px;">
+        <h2>Set Salary</h2>
+        <div class="form-group">
+          <label>Monthly Salary (INR)</label>
+          <input type="number" id="salary-input" placeholder="e.g. 50000" min="0"/>
+        </div>
+        <button class="btn btn-green" onclick="setSalary()">Set Salary</button>
+      </div>
+
+      <div class="panel">
+        <h2>Add Expense</h2>
+        <div class="form-group">
+          <label>Expense Name</label>
+          <input type="text" id="exp-name" placeholder="e.g. Rent"/>
+        </div>
+        <div class="form-group">
+          <label>Amount (INR)</label>
+          <input type="number" id="exp-amount" placeholder="e.g. 12000" min="0"/>
+          <div class="error-msg" id="exp-error">Please enter a valid name and positive amount.</div>
+        </div>
+        <button class="btn btn-accent" onclick="addExpense()">+ Add Expense</button>
+      </div>
+
+      <div class="actions-row">
+        <button class="btn btn-outline" onclick="downloadPDF()">⬇ Download PDF</button>
+        <button class="btn btn-outline" onclick="clearAll()" style="color: var(--danger); border-color: var(--danger);">🗑 Clear All</button>
+      </div>
+    </div>
+
+    <!-- Right: List + Chart -->
+    <div>
+      <div class="panel" style="margin-bottom: 20px;">
+        <h2>Expenses</h2>
+        <div id="empty-msg" class="empty-state">No expenses yet. Add one!</div>
+        <ul class="expense-list" id="expense-list" style="max-height: 340px; overflow-y: auto; padding-right: 4px;"></ul>
+      </div>
+
+      <div class="panel chart-panel">
+        <h2>Budget Breakdown</h2>
+        <div id="pie-chart-wrap">
+          <canvas id="pie-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let salary = 0;
+let expenses = [];       // [{id, name, amount}]
+let chartInstance = null;
+let fxRate = 1;
+let currentCurrency = 'INR';
+const SYMBOLS = { INR:'₹', USD:'$', EUR:'€', GBP:'£', JPY:'¥', AED:'د.إ' };
+
+// ─── Persistence ─────────────────────────────────────────────────────────────
+function save() {
+  localStorage.setItem('cashflow_salary', JSON.stringify(salary));
+  localStorage.setItem('cashflow_expenses', JSON.stringify(expenses));
+  localStorage.setItem('cashflow_currency', currentCurrency);
+}
+
+function load() {
+  try {
+    const s = localStorage.getItem('cashflow_salary');
+    const e = localStorage.getItem('cashflow_expenses');
+    const c = localStorage.getItem('cashflow_currency');
+    if (s) salary = JSON.parse(s);
+    if (e) expenses = JSON.parse(e);
+    if (c) {
+      currentCurrency = c;
+      document.getElementById('currency-select').value = c;
+    }
+  } catch(err) {
+    salary = 0; expenses = [];
+  }
+}
+
+// ─── Currency ─────────────────────────────────────────────────────────────────
+async function changeCurrency(to) {
+  currentCurrency = to;
+  if (to === 'INR') {
+    fxRate = 1;
+    document.getElementById('fx-rate').textContent = '1 INR = 1.00 INR';
+  } else {
+    try {
+      const res = await fetch(`https://api.frankfurter.app/latest?from=INR&to=${to}`);
+      const data = await res.json();
+      fxRate = data.rates[to];
+      document.getElementById('fx-rate').textContent = `1 INR = ${fxRate.toFixed(4)} ${to}`;
+    } catch {
+      fxRate = 1;
+      document.getElementById('fx-rate').textContent = 'Rate unavailable';
+    }
+  }
+  save();
+  render();
+}
+
+function fmt(inrAmount) {
+  const sym = SYMBOLS[currentCurrency] || currentCurrency + ' ';
+  const val = inrAmount * fxRate;
+  if (currentCurrency === 'JPY') return sym + Math.round(val).toLocaleString();
+  return sym + val.toFixed(2);
+}
+
+// ─── Logic ────────────────────────────────────────────────────────────────────
+function setSalary() {
+  const val = parseFloat(document.getElementById('salary-input').value);
+  if (isNaN(val) || val < 0) return;
+  salary = val;
+  document.getElementById('salary-input').value = '';
+  save(); render();
+}
+
+function addExpense() {
+  const name   = document.getElementById('exp-name').value.trim();
+  const amount = parseFloat(document.getElementById('exp-amount').value);
+  const err    = document.getElementById('exp-error');
+
+  if (!name || isNaN(amount) || amount <= 0) {
+    err.style.display = 'block';
+    return;
+  }
+  err.style.display = 'none';
+  expenses.push({ id: Date.now(), name, amount });
+  document.getElementById('exp-name').value = '';
+  document.getElementById('exp-amount').value = '';
+  save(); render();
+}
+
+function deleteExpense(id) {
+  expenses = expenses.filter(e => e.id !== id);
+  save(); render();
+}
+
+function clearAll() {
+  if (!confirm('Clear all data?')) return;
+  salary = 0; expenses = [];
+  save(); render();
+}
+
+function totalExpenses() {
+  return expenses.reduce((sum, e) => sum + e.amount, 0);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  const total = totalExpenses();
+  const balance = salary - total;
+
+  // Stats
+  document.getElementById('stat-salary').textContent   = fmt(salary);
+  document.getElementById('stat-expenses').textContent = fmt(total);
+  const balEl = document.getElementById('stat-balance');
+  balEl.textContent = fmt(balance);
+
+  // Budget alert: balance < 10% of salary
+  const warn = document.getElementById('balance-warning');
+  if (salary > 0 && balance < salary * 0.1) {
+    warn.classList.add('visible');
+    balEl.classList.add('low');
+  } else {
+    warn.classList.remove('visible');
+    balEl.classList.remove('low');
+  }
+
+  // Expense list
+  const ul = document.getElementById('expense-list');
+  const empty = document.getElementById('empty-msg');
+  ul.innerHTML = '';
+  if (expenses.length === 0) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    expenses.forEach(exp => {
+      const li = document.createElement('li');
+      li.className = 'expense-item';
+      li.innerHTML = `
+        <span class="exp-name">${exp.name}</span>
+        <span class="exp-amount">- ${fmt(exp.amount)}</span>
+        <button class="btn-del" onclick="deleteExpense(${exp.id})" title="Delete">✕</button>
+      `;
+      ul.appendChild(li);
+    });
+  }
+
+  // Pie chart
+  renderChart(total, balance);
+}
+
+const SLICE_COLORS = [
+  '#ff5a5a','#5affb8','#5ab4ff','#ffb85a','#c45aff',
+  '#ff5ae8','#5affff','#ffe45a','#ff8c5a','#8cff5a'
+];
+
+function renderChart(totalExp, balance) {
+  const ctx = document.getElementById('pie-chart').getContext('2d');
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  const rem = Math.max(balance, 0);
+  const hasExp = expenses.length > 0;
+  const labels = hasExp ? [...expenses.map(e => e.name), 'Remaining'] : ['Remaining'];
+  const data   = hasExp ? [...expenses.map(e => e.amount), rem] : [salary || 1];
+  const colors = hasExp
+    ? [...expenses.map((_, i) => SLICE_COLORS[i % SLICE_COLORS.length]), '#5affb8']
+    : ['#5affb8'];
+  chartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderColor: '#16161a',
+        borderWidth: 3,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      cutout: '55%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#888898', font: { family: 'DM Mono', size: 11 }, padding: 12, boxWidth: 12, boxHeight: 12 }
+        },
+        tooltip: {
+          callbacks: { label: c => ` ${c.label}: ${fmt(c.raw)}` }
+        }
+      }
+    }
+  });
+}
+
+// ─── PDF Export ───────────────────────────────────────────────────────────────
+function pdfFmt(amount) {
+  // ASCII-safe formatting for jsPDF (no rupee/special symbols)
+  const val = amount * fxRate;
+  const rounded = currentCurrency === 'JPY' ? Math.round(val) : parseFloat(val.toFixed(2));
+  return `${currentCurrency} ${rounded.toLocaleString('en-US')}`;
+}
+
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const total = totalExpenses();
+  const balance = salary - total;
+  const now = new Date().toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+
+  // Title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(24);
+  doc.setTextColor(20, 20, 20);
+  doc.text('Cash-Flow Report', 20, 26);
+
+  // Subtitle
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(130, 130, 130);
+  doc.text(`Generated on ${now}   |   Currency: ${currentCurrency}`, 20, 34);
+
+  // Divider
+  doc.setDrawColor(210, 210, 210);
+  doc.setLineWidth(0.4);
+  doc.line(20, 39, 190, 39);
+
+  // Summary section
+  doc.setTextColor(20, 20, 20);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Summary', 20, 52);
+
+  const summaryData = [
+    ['Total Salary',      pdfFmt(salary)],
+    ['Total Expenses',    pdfFmt(total)],
+    ['Remaining Balance', pdfFmt(balance)],
+  ];
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  let sy = 62;
+  summaryData.forEach(([label, value]) => {
+    doc.setTextColor(90, 90, 90);
+    doc.text(label, 22, sy);
+    doc.setTextColor(20, 20, 20);
+    doc.setFont('helvetica', 'bold');
+    doc.text(value, 95, sy);
+    doc.setFont('helvetica', 'normal');
+    sy += 10;
+  });
+
+  // Divider
+  doc.setDrawColor(210, 210, 210);
+  doc.line(20, sy + 2, 190, sy + 2);
+  sy += 14;
+
+  // Expense Breakdown
+  doc.setTextColor(20, 20, 20);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Expense Breakdown', 20, sy);
+  sy += 10;
+
+  if (expenses.length === 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(150, 150, 150);
+    doc.text('No expenses recorded.', 22, sy);
+  } else {
+    // Table header background
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, sy - 6, 170, 9, 'F');
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100, 100, 100);
+    doc.text('#',   22, sy);
+    doc.text('Expense Name',  34, sy);
+    doc.text('Amount (INR)',  120, sy);
+    doc.text(`Amount (${currentCurrency})`, 158, sy);
+    sy += 4;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, sy, 190, sy);
+    sy += 7;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    expenses.forEach((exp, i) => {
+      if (sy > 270) { doc.addPage(); sy = 20; }
+      // Zebra stripe
+      if (i % 2 === 0) {
+        doc.setFillColor(252, 252, 252);
+        doc.rect(20, sy - 5, 170, 8, 'F');
+      }
+      doc.setTextColor(120, 120, 120);
+      doc.text(String(i + 1), 22, sy);
+      doc.setTextColor(20, 20, 20);
+      doc.text(exp.name, 34, sy);
+      doc.text(`INR ${exp.amount.toFixed(2)}`, 120, sy);
+      doc.text(pdfFmt(exp.amount), 158, sy);
+      sy += 9;
+    });
+
+    // Total row
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, sy, 190, sy);
+    sy += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(20, 20, 20);
+    doc.text('Total Expenses', 34, sy);
+    doc.text(`INR ${total.toFixed(2)}`, 120, sy);
+    doc.text(pdfFmt(total), 158, sy);
+  }
+
+  // Budget warning
+  if (salary > 0 && balance < salary * 0.1) {
+    doc.setTextColor(180, 40, 40);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('! WARNING: Balance is below 10% of salary', 20, 282);
+  }
+
+  doc.save('cashflow-report.pdf');
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+load();
+if (currentCurrency !== 'INR') {
+  changeCurrency(currentCurrency);
+} else {
+  render();
+}
+</script>
+</body>
+</html>
